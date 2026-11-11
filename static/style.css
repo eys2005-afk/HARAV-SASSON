@@ -1,0 +1,27 @@
+:root{--bg:#faf7f2;--fg:#1f1a14;--mut:#7a6f62;--card:#fff;--line:#e4dccf;--acc:#7a4a12;--ok:#2f6b3a;--warn:#a5651a;--bad:#a33}
+@media (prefers-color-scheme:dark){:root{--bg:#17140f;--fg:#efe8dc;--mut:#a39682;--card:#201c15;--line:#352f25;--acc:#e0a95b;--ok:#7fc58b;--warn:#e0a95b;--bad:#e08080}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:17px/1.7 "Frank Ruehl CLM","FrankRuehl",David,Georgia,serif}
+a{color:var(--acc)}
+header{border-bottom:1px solid var(--line);background:var(--card)}
+.bar{max-width:880px;margin:auto;padding:12px 16px;display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+.bar .brand{font-weight:700;font-size:1.2em;text-decoration:none}
+.bar form{margin-inline-start:auto;display:flex;gap:6px}
+main{max-width:880px;margin:auto;padding:18px 16px 60px}
+h1{font-size:1.6em;margin:.2em 0}h2{font-size:1.25em;margin:1.6em 0 .5em;border-bottom:1px solid var(--line);padding-bottom:4px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin:12px 0}
+.mut{color:var(--mut);font-size:.9em}
+input,select,button,textarea{font:inherit;padding:6px 10px;border:1px solid var(--line);border-radius:7px;background:var(--card);color:var(--fg)}
+button{cursor:pointer;background:var(--acc);color:var(--card);border-color:var(--acc)}button.sec{background:transparent;color:var(--acc)}button.del{background:transparent;color:var(--bad);border-color:var(--bad)}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:6px 0}
+.badge{font-size:.78em;padding:1px 8px;border-radius:99px;border:1px solid var(--line);color:var(--mut)}
+.ok{color:var(--ok);border-color:var(--ok)}.warn{color:var(--warn);border-color:var(--warn)}.bad{color:var(--bad);border-color:var(--bad)}
+blockquote{margin:8px 0;padding:6px 14px;border-inline-start:3px solid var(--acc);background:rgba(128,100,60,.07)}
+.src{white-space:pre-wrap}
+.ts{color:var(--mut);font-size:.82em;font-variant-numeric:tabular-nums;margin-inline-end:8px}
+.tr p{margin:.55em 0}
+.flash{background:#fff4d6;color:#4a3500;border:1px solid #e6c866;border-radius:8px;padding:8px 12px;margin:10px 0}
+table{width:100%;border-collapse:collapse}td,th{padding:6px 8px;border-bottom:1px solid var(--line);text-align:start;vertical-align:top}
+.hl{background:rgba(255,200,0,.28)}
+details summary{cursor:pointer;color:var(--acc)}
+@media (max-width:560px){body{font-size:16px}.bar form{width:100%}.bar form input{flex:1}}

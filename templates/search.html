@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block body %}
+<h1>חיפוש בספרים</h1>
+{% if q %}<p class="mut">{{ results|length }} תוצאות עבור «{{ q }}»</p>{% endif %}
+{% for r in results %}
+<div class="card"><a href="{{ url_for('passage', pid=r.id) }}"><strong>{{ r.title }} — {{ r.ref }}</strong></a>
+<div class="src">{{ r.text[:400] }}{% if r.text|length > 400 %}…{% endif %}</div></div>
+{% endfor %}
+{% endblock %}

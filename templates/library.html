@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block body %}
+<h1>ספריית הספרים</h1>
+<form method="post" action="{{ url_for('upload_book') }}" enctype="multipart/form-data" class="card">
+  <div class="row"><input name="title" placeholder="שם הספר" required size="26"><input name="author" placeholder="מחבר"></div>
+  <div class="row"><input name="aliases" placeholder="כינויים מופרדים בפסיק (למשל: לשם, לשם שבו ואחלמה)" size="48"></div>
+  <div class="row"><input type="file" name="file" accept=".txt,.docx,.pdf,.json" required><button>הוסף ספר</button></div>
+  <div class="mut">txt / docx / pdf (עם שכבת טקסט) / JSON של Sefaria. ספר שמעל כמה עשרות מגה — עדיף לייבא בסקריפט (ר' README).</div>
+</form>
+<table><tr><th>ספר</th><th>פסקאות</th><th>כינויים</th><th></th></tr>
+{% for b in books %}<tr>
+ <td><strong>{{ b.title }}</strong><div class="mut">{{ b.author }} · {{ b.source }}</div></td><td>{{ b.n }}</td>
+ <td><form method="post" action="{{ url_for('book_aliases', bid=b.id) }}" class="row"><input name="aliases" value="{{ b.aliases }}" size="22"><button class="sec">שמור</button></form></td>
+ <td><form method="post" action="{{ url_for('delete_book', bid=b.id) }}" onsubmit="return confirm('למחוק את הספר?')"><button class="del">מחק</button></form></td>
+</tr>{% else %}<tr><td colspan="4" class="mut">הספרייה ריקה.</td></tr>{% endfor %}</table>
+{% endblock %}

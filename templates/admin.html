@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block body %}
+<h1>ניהול</h1>
+{% if not has_key %}<div class="flash">לא הוגדר GEMINI_API_KEY — תמלול וניתוח לא יעבדו (ר' README).</div>{% endif %}
+<h2>העלאת שיעור</h2>
+<form method="post" action="{{ url_for('upload_lesson') }}" enctype="multipart/form-data" class="card">
+  <div class="row"><input name="title" placeholder="כותרת השיעור" required size="32"><input name="date" placeholder="תאריך (אופציונלי)"></div>
+  <div class="row"><input type="file" name="audio" accept="audio/*,video/mp4" required><button>העלה ותמלל</button></div>
+  <div class="mut">mp3 / m4a / wav / ogg … שיעור ארוך (מעל כשעה וחצי) כדאי לפצל לשני קבצים.</div>
+</form>
+<h2>שיעורים</h2>
+<table>{% for l in lessons %}<tr>
+ <td><a href="{{ url_for('lesson', lid=l.id) }}">{{ l.title }}</a> <span class="mut">{{ l.lesson_date }}</span></td>
+ <td><span class="badge {{ 'ok' if l.status=='ready' else 'bad' if l.status=='error' else 'warn' }}">{{ STATUS_HE[l.status] }}</span> {{ l.error }}</td>
+</tr>{% endfor %}</table>
+{% endblock %}

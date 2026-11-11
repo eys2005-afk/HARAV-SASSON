@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block title %}{{ les.title }}{% endblock %}
+{% macro cite(it, review=False) %}
+<div class="card" id="c{{ it.c.id }}">
+  <div class="row">
+    {% if it.c.time %}<span class="ts">⏱ {{ it.c.time }}</span>{% endif %}
+    {% if it.c.source_guess %}<strong>{{ it.c.source_guess }}</strong>{% endif %}
+    {% if it.c.state == 'approved' %}<span class="badge ok">אושר</span>
+    {% elif it.c.state == 'matched' %}<span class="badge ok">התאמה אוטומטית</span>
+    {% elif it.c.state == 'uncertain' %}<span class="badge warn">לא בטוח ({{ (it.c.confidence*100)|int }}%)</span>
+    {% elif it.c.state == 'hidden' %}<span class="badge bad">מוסתר</span>{% endif %}
+  </div>
+  <div class="mut">מה נאמר: {{ it.c.quote }}</div>
+  {% if it.p %}
+  <blockquote class="src">{{ it.p.text }}</blockquote>
+  <div class="mut">📚 <a href="{{ url_for('passage', pid=it.p.id) }}">{{ it.p.book_title }} — {{ it.p.ref }}</a> (להקשר מורחב)</div>
+  {% endif %}
+  {% if is_admin %}
+  <form method="post" action="{{ url_for('edit_citation', cid=it.c.id) }}" class="row">
+    <input name="passage_id" size="9" placeholder="מס' פסקה" value="{{ it.p.id if it.p else '' }}">
+    <button name="action" value="approve">אשר</button>
+    <button class="sec" name="action" value="reject">אין התאמה</button>
+    <button class="del" name="action" value="hide">הסתר</button>
+  </form>
+  {% set cands = it.c.candidates|fromjson %}
+  {% if cands %}<div class="mut">מועמדים: {% for p in cands %}<a href="{{ url_for('passage', pid=p) }}">{{ p }}</a> {% endfor %}</div>{% endif %}
+  {% endif %}
+</div>
+{% endmacro %}
+{% block body %}
+<h1>{{ les.title }}</h1>
+<div class="mut">{{ les.lesson_date }}</div>
+
+{% if les.status != 'ready' %}
+<div class="card" id="st">
+  <strong id="stText">{{ STATUS_HE[les.status] }}</strong>
+  {% if les.error %}<div class="bad">{{ les.error }}</div>{% endif %}
+  {% if is_admin and les.status == 'error' %}
+  <form method="post" action="{{ url_for('reprocess', lid=les.id) }}" class="row">
+    <button>נסה שוב</button><button name="full" value="1" class="sec">תמלל מחדש מהתחלה</button>
+  </form>{% endif %}
+</div>
+{% if les.status not in ('error',) %}<script>
+const t=setInterval(async()=>{const r=await fetch("{{ url_for('lesson_status', lid=les.id) }}");const j=await r.json();
+ if(j.status==='ready'||j.status==='error'){clearInterval(t);location.reload()}},4000);</script>{% endif %}
+{% endif %}
+
+{% if les.summary %}<h2>סיכום</h2><p>{{ les.summary }}</p>
+{% if topics %}<p>{% for t in topics %}<span class="badge">{{ t }}</span> {% endfor %}</p>{% endif %}{% endif %}
+
+{% if shown or is_admin %}<h2>מקורות שהרב הזכיר ({{ shown|length }})</h2>{% endif %}
+{% for it in shown %}{{ cite(it) }}{% else %}{% if les.status == 'ready' %}<p class="mut">לא אותרו מקורות מהספרייה בשיעור זה.</p>{% endif %}{% endfor %}
+
+{% if extra %}<h2>מקורות נוספים שהוזכרו</h2>
+{% for it in extra %}<div class="card"><span class="ts">{{ it.c.time }}</span><strong>{{ it.c.source_guess }}</strong>
+ <div class="mut">{{ it.c.quote }}</div></div>{% endfor %}{% endif %}
+
+{% if review %}<h2>לבדיקת מנהל ({{ review|length }})</h2>
+{% for it in review %}{{ cite(it, True) }}{% endfor %}{% endif %}
+
+{% if transcript %}<h2>תמלול</h2>
+<details {% if transcript|length < 40 %}open{% endif %}><summary>הצג / הסתר</summary>
+<div class="tr">{% for s in transcript %}<p><span class="ts">{{ s.t }}</span>{{ s.text }}</p>{% endfor %}</div></details>{% endif %}
+
+{% if is_admin and les.status == 'ready' %}
+<h2>ניהול</h2>
+<form method="post" action="{{ url_for('reprocess', lid=les.id) }}" class="row"
+ onsubmit="return confirm('לעבד מחדש? אישורים ידניים נשמרים.')">
+  <button class="sec">נתח והתאם מחדש (אחרי הוספת ספרים)</button></form>
+<form method="post" action="{{ url_for('delete_lesson', lid=les.id) }}" onsubmit="return confirm('למחוק את השיעור?')">
+  <button class="del">מחק שיעור</button></form>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block title %}{{ p.book_title }} — {{ p.ref }}{% endblock %}
+{% block body %}
+<h1>{{ p.book_title }}</h1>
+<div class="mut">{{ p.author }} · {{ p.ref }}</div>
+{% for x in ctx %}
+<div class="card {% if x.id == p.id %}hl{% endif %}"><div class="mut">{{ x.ref }}</div><div class="src">{{ x.text }}</div></div>
+{% endfor %}
+{% endblock %}

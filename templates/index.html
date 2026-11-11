@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block body %}
+<h1>השיעורים</h1>
+{% for l in lessons %}
+<div class="card">
+  <a href="{{ url_for('lesson', lid=l.id) }}"><strong>{{ l.title }}</strong></a>
+  <span class="mut">{{ l.lesson_date }}</span>
+  {% if l.status != 'ready' %}<span class="badge warn">{{ STATUS_HE[l.status] }}</span>{% endif %}
+  {% if l.summary %}<div class="mut">{{ l.summary[:220] }}{% if l.summary|length > 220 %}…{% endif %}</div>{% endif %}
+</div>
+{% else %}<p class="mut">עדיין אין שיעורים.</p>{% endfor %}
+{% endblock %}

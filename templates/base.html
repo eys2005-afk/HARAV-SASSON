@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>{% block title %}שיעורי הרב ששון{% endblock %}</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<header><div class="bar">
+  <a class="brand" href="{{ url_for('index') }}">📖 שיעורי הרב ששון</a>
+  <form action="{{ url_for('search') }}"><input name="q" placeholder="חיפוש בספרים…" value="{{ q or '' }}"><button>חפש</button></form>
+  {% if is_admin %}<a href="{{ url_for('admin') }}">ניהול</a><a href="{{ url_for('admin_library') }}">ספרייה</a><a href="{{ url_for('logout') }}">יציאה</a>
+  {% else %}<a class="mut" href="{{ url_for('login') }}">כניסת מנהל</a>{% endif %}
+</div></header>
+<main>
+{% for m in get_flashed_messages() %}<div class="flash">{{ m }}</div>{% endfor %}
+{% block body %}{% endblock %}
+</main>
+</body>
+</html>
