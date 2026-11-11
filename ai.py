@@ -6,6 +6,7 @@ import time
 
 import requests
 
+import glossary
 from config import GEMINI_API_KEY, GEMINI_MODEL, INSECURE_SSL, OUTBOUND_PROXY
 
 BASE = "https://generativelanguage.googleapis.com"
@@ -129,20 +130,39 @@ ANALYZE_PROMPT = """להלן תמלול שיעור תורה. המטרה: לאת�
 - time: זמן ההתחלה של הפסקה בתמלול שבה נאמר.
 - כלול רק מקור שנאמר בפועל בשיעור; אל תוסיף מקורות מהידע שלך.
 ספרי הספרייה: {books}
+בספרי הקבלה כותבים לרוב קיצורים בעוד שהרב אומר את הצורה המלאה (ולהפך). מילון קיצורים לעזרה בזיהוי:
+{glossary}
 """
 
 RERANK_PROMPT = """הרב אמר בשיעור: «{quote}»
 הוא רמז למקור: {guess}
-להלן פסקאות מועמדות מהספרים. איזו מהן היא המקור שהרב ציטט או התכוון אליו? הדיבור בעל-פה לא מדויק — מספיקה התאמה בתוכן ובעיקר המילים.
+להלן פסקאות מועמדות מהספרים. איזו מהן היא המקור שהרב ציטט או התכוון אליו? הדיבור בעל-פה לא מדויק — מספיקה התאמה בתוכן ובעיקר המילים. בפסקאות יש קיצורים (א"ק = אדם קדמון, ז"א = זעיר אנפין, וכד') — פענח אותם לפי המילון:
+{glossary}
 {cands}
 החזר JSON בלבד: {{"best": מספר המועמד או null אם אף אחד לא מתאים, "confidence": 0 עד 1, "reason": "משפט אחד"}}"""
 
 
-def transcribe(path: str) -> list[dict]:
+OCR_PROMPT = """זהו קטע מספר קבלה/הגות בעברית (ייתכן שכולל כמה שכבות: טקסט הספר ומעליו/מתחתיו ביאורים והערות כמו
+"נפש אליהו" ו"חיי יוסף"). חלץ את כל הטקסט כפי שהוא, באיות המדויק, בלי לתקן ובלי להשלים.
+- כל עמוד פותח בשורה `=== עמוד N ===` כש-N הוא מספר העמוד בקובץ שקיבלת (1 לעמוד הראשון).
+- בתוך עמוד: קודם טקסט הספר לפי סדר הקריאה, ואחריו כל ביאור/הערה בשורה נפרדת שמתחילה ב-`[ביאור]` או בשם הביאור.
+- שמור על פסקאות (שורה ריקה בין פסקאות). בלי markdown, בלי הסברים, בלי ניקוד אם אינו בדפוס.
+- מילה לא קריאה: [?]. אל תמציא טקסט."""
+
+
+def ocr_pdf_bytes(data: bytes) -> str:
+    import base64
+
+    parts = [{"inline_data": {"mime_type": "application/pdf", "data": base64.b64encode(data).decode()}},
+             {"text": OCR_PROMPT}]
+    return _generate(parts, json_out=False, thinking=0)
+
+
+def transcribe(path: str, context: str = "") -> list[dict]:
+    """context: שם השיעור ורשימת ספרים — מסייע לאיות עקבי של מונחים בין מקטעים."""
     uri, mime = upload_audio(path)
-    out = _generate(
-        [{"file_data": {"mime_type": mime, "file_uri": uri}}, {"text": TRANSCRIBE_PROMPT}], thinking=0
-    )
+    prompt = TRANSCRIBE_PROMPT + (f"\nהקשר (לאיות מונחים בלבד): {context}" if context else "")
+    out = _generate([{"file_data": {"mime_type": mime, "file_uri": uri}}, {"text": prompt}], thinking=0)
     segs = _loads(out)
     segs = [s for s in segs if isinstance(s, dict) and s.get("text")]
     if not segs:
@@ -152,7 +172,8 @@ def transcribe(path: str) -> list[dict]:
 
 def analyze(transcript: list[dict], book_titles: list[str]) -> dict:
     text = "\n".join(f"[{s['t']}] {s['text']}" for s in transcript)
-    prompt = ANALYZE_PROMPT.replace("{books}", "; ".join(book_titles) or "(אין עדיין)")
+    prompt = ANALYZE_PROMPT.replace("{books}", "; ".join(book_titles) or "(אין עדיין)").replace(
+        "{glossary}", glossary.prompt_block())
     out = _loads(_generate([{"text": prompt + "\n\nתמלול:\n" + text}]))
     if not isinstance(out, dict):
         raise AIError("תשובת הניתוח לא בפורמט צפוי")
@@ -161,5 +182,6 @@ def analyze(transcript: list[dict], book_titles: list[str]) -> dict:
 
 def rerank(quote: str, guess: str, candidates: list[dict]) -> dict:
     cands = "\n".join(f"[{i}] ({c['title']} — {c['ref']}) {c['text'][:700]}" for i, c in enumerate(candidates))
-    out = _loads(_generate([{"text": RERANK_PROMPT.format(quote=quote, guess=guess or "לא צוין", cands=cands)}], thinking=0))
+    prompt = RERANK_PROMPT.format(quote=quote, guess=guess or "לא צוין", cands=cands, glossary=glossary.prompt_block(40))
+    out = _loads(_generate([{"text": prompt}], thinking=0))
     return out if isinstance(out, dict) else {"best": None, "confidence": 0}

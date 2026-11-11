@@ -29,6 +29,7 @@ create table if not exists lessons(
   audio_path text default '',
   status text default 'queued',     -- queued/transcribing/analyzing/matching/ready/error
   error text default '',
+  progress text default '',         -- "מתמלל מקטע 2 מתוך 6"
   summary text default '',
   topics text default '[]',
   transcript text default '[]',     -- JSON: [{"t":"MM:SS","text":"..."}]
@@ -67,3 +68,6 @@ def db():
 def init():
     with db() as c:
         c.executescript(SCHEMA)
+        cols = {r["name"] for r in c.execute("pragma table_info(lessons)")}
+        if "progress" not in cols:  # מיגרציה למסד שנוצר לפני הוספת העמודה
+            c.execute("alter table lessons add column progress text default ''")

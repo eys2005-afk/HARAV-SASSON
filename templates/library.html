@@ -5,8 +5,17 @@
   <div class="row"><input name="title" placeholder="שם הספר" required size="26"><input name="author" placeholder="מחבר"></div>
   <div class="row"><input name="aliases" placeholder="כינויים מופרדים בפסיק (למשל: לשם, לשם שבו ואחלמה)" size="48"></div>
   <div class="row"><input type="file" name="file" accept=".txt,.docx,.pdf,.json" required><button>הוסף ספר</button></div>
-  <div class="mut">txt / docx / pdf (עם שכבת טקסט) / JSON של Sefaria. ספר שמעל כמה עשרות מגה — עדיף לייבא בסקריפט (ר' README).</div>
+  <label class="row"><input type="checkbox" name="ocr"> PDF סרוק / עם טקסט פגום — קרא כל עמוד ב-Gemini (OCR; עולה כסף, כ-2–3$ לספר של 800 עמודים)</label>
+  <div class="mut">txt / docx / pdf / JSON של Sefaria. הקובץ מעובד ברקע; ספר גדול יכול לקחת דקות ארוכות.</div>
 </form>
+<div id="jobs"></div>
+<script>
+async function poll(){const j=await (await fetch("{{ url_for('library_job_status') }}")).json();
+ const ids=Object.keys(j);document.getElementById('jobs').innerHTML=ids.map(i=>`<div class="card"><strong>${j[i].title}</strong> —
+ <span class="badge ${j[i].status=='done'?'ok':j[i].status=='error'?'bad':'warn'}">${j[i].msg}</span></div>`).join('');
+ if(ids.some(i=>j[i].status=='running'))setTimeout(poll,3000);else if(ids.length&&!window._r){window._r=1;setTimeout(()=>location.reload(),1500)}}
+poll();
+</script>
 <table><tr><th>ספר</th><th>פסקאות</th><th>כינויים</th><th></th></tr>
 {% for b in books %}<tr>
  <td><strong>{{ b.title }}</strong><div class="mut">{{ b.author }} · {{ b.source }}</div></td><td>{{ b.n }}</td>

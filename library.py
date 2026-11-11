@@ -3,8 +3,25 @@ import json
 import re
 from pathlib import Path
 
+import glossary
 from db import db
 from hebrew import normalize, query_tokens
+
+
+def _fts_text(text: str) -> str:
+    """הטקסט שנכנס לאינדקס: נורמול + פירושי הקיצורים שבפסקה (כדי ש'אריך אנפין' ימצא 'א"א')."""
+    return (normalize(text) + " " + glossary.index_expansion(text)).strip()
+
+
+def reindex() -> int:
+    """בונה מחדש את אינדקס החיפוש (אחרי עריכת המילון)."""
+    with db() as c:
+        c.execute("delete from passages_fts")
+        n = 0
+        for r in c.execute("select id,text from passages").fetchall():
+            c.execute("insert into passages_fts(rowid,norm) values(?,?)", (r["id"], _fts_text(r["text"])))
+            n += 1
+    return n
 
 MAX_CHUNK = 900  # תווים לפסקה באינדקס
 MIN_CHUNK = 160
@@ -72,18 +89,52 @@ def parse_docx(path: Path) -> list[tuple[str, str]]:
     return _pack(paras)
 
 
-def parse_pdf(path: Path) -> list[tuple[str, str]]:
-    from pdfminer.high_level import extract_pages
-    from pdfminer.layout import LTTextContainer
+_SWAP = str.maketrans("()[]{}<>", ")(][}{><")
 
-    paras, total = [], 0
+
+def _looks_reversed(text: str) -> bool:
+    """PDF בסדר ויזואלי: אותיות סופיות (ךםןףץ) מופיעות בתחילת מילים במקום בסופן."""
+    start = end = 0
+    for w in re.findall(r"[א-ת]{2,}", text):
+        start += w[0] in "ךםןףץ"
+        end += w[-1] in "ךםןףץ"
+    return start > end * 2 and start > 20
+
+
+def _fix_visual_line(t: str) -> str:
+    t = t.strip("\n")[::-1].translate(_SWAP)
+    return re.sub(r"\d+", lambda m: m.group()[::-1], t)
+
+
+def parse_pdf(path: Path) -> list[tuple[str, str]]:
+    """קורא PDF עם שכבת טקסט; מזהה ומתקן עברית בסדר ויזואלי הפוך (נפוץ בספרים סרוקים עם OCR)."""
+    from pdfminer.high_level import extract_pages
+    from pdfminer.layout import LTTextContainer, LTTextLine
+
+    # לכל עמוד: רשימת בלוקים (y1, x1, [שורות מלמעלה למטה]) — בלוק נשאר רצף אחד ולא מתערבב עם טורים סמוכים
+    pages: list[tuple[int, list[tuple[float, float, list[str]]]]] = []
+    total, sample = 0, []
     for i, page in enumerate(extract_pages(str(path)), 1):
-        text = "\n".join(el.get_text() for el in page if isinstance(el, LTTextContainer)).strip()
-        total += len(text)
-        if text:
-            paras.append((f"עמ' {i}", text.replace("\n", " ")))
+        boxes = []
+        for el in page:
+            if isinstance(el, LTTextContainer):
+                ls = sorted((ln for ln in el if isinstance(ln, LTTextLine) and ln.get_text().strip()), key=lambda l: -l.y1)
+                if ls:
+                    boxes.append((el.y1, el.x1, [l.get_text() for l in ls]))
+        if boxes:
+            pages.append((i, boxes))
+            total += sum(len(t) for b in boxes for t in b[2])
+            if len(sample) < 40:
+                sample.append(" ".join(t for b in boxes for t in b[2]))
     if total < 200:
         raise ValueError("ה-PDF נראה סרוק (תמונות בלי שכבת טקסט). נדרש OCR או גרסת טקסט של הספר.")
+    reversed_doc = _looks_reversed(" ".join(sample))
+    paras = []
+    for i, boxes in pages:
+        boxes.sort(key=lambda b: (-round(b[0] / 12), -b[1]))  # מלמעלה למטה; באותו גובה — מימין לשמאל
+        fix = _fix_visual_line if reversed_doc else (lambda s: s.strip("\n"))
+        text = " ".join(" ".join(fix(t) for t in b[2]) for b in boxes)
+        paras.append((f"עמ' PDF {i}", re.sub(r"\s+", " ", text).strip()))
     return _pack(paras)
 
 
@@ -124,7 +175,7 @@ def add_book(title: str, author: str, source: str, items: list[tuple[str, str]],
             pid = c.execute(
                 "insert into passages(book_id,seq,ref,text) values(?,?,?,?)", (bid, seq, ref, text)
             ).lastrowid
-            c.execute("insert into passages_fts(rowid,norm) values(?,?)", (pid, normalize(text)))
+            c.execute("insert into passages_fts(rowid,norm) values(?,?)", (pid, _fts_text(text)))
     return bid, len(items)
 
 
@@ -159,9 +210,11 @@ def hint_books(attributed: str) -> set[int]:
 def find(text: str, attributed: str = "", limit: int = 8) -> list[dict]:
     """מחזיר פסקאות מועמדות, הכי קרובות ראשונות. score = כיסוי מילות השאילתה."""
     toks = query_tokens(text)
-    if not toks:
+    extra_text, short = glossary.query_expansion(text)  # קיצורים שנאמרו -> פירושים; מונחים מלאים -> קיצורים
+    fts_toks = list(dict.fromkeys(toks + query_tokens(extra_text, 10)))
+    if not fts_toks:
         return []
-    q = " OR ".join(f'"{t}"' for t in toks)
+    q = " OR ".join(f'"{t}"' for t in fts_toks)
     hinted = hint_books(attributed)
     with db() as c:
         rows = c.execute(
@@ -174,8 +227,10 @@ def find(text: str, attributed: str = "", limit: int = 8) -> list[dict]:
     res = []
     for r in rows:
         n = normalize(r["text"])
-        cov = sum(1 for t in toks if t in n) / len(toks)
-        score = cov + (0.15 if r["book_id"] in hinted else 0)
+        words = set(n.split())
+        cov = sum(1 for t in fts_toks if t in n) / len(fts_toks)
+        abbr_bonus = min(0.2, 0.07 * sum(1 for s in short if s in words))  # הספר כתב קיצור של מה שהרב אמר במלואו
+        score = cov + abbr_bonus + (0.15 if r["book_id"] in hinted else 0)
         res.append({**dict(r), "score": round(score, 3)})
     res.sort(key=lambda x: (-x["score"], x["bm"]))
     return res[:limit]

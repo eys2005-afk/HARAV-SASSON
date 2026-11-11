@@ -9,7 +9,9 @@ from werkzeug.utils import secure_filename
 
 import config
 import db as database
+import glossary
 import library
+import library_jobs
 import pipeline
 
 app = Flask(__name__)
@@ -109,7 +111,7 @@ def search():
 @app.get("/api/lesson/<int:lid>/status")
 def lesson_status(lid):
     with database.db() as c:
-        r = c.execute("select status,error from lessons where id=?", (lid,)).fetchone()
+        r = c.execute("select status,error,progress from lessons where id=?", (lid,)).fetchone()
     return jsonify(dict(r) if r else {}) if r else abort(404)
 
 
@@ -222,16 +224,39 @@ def upload_book():
     if not f or not title:
         flash("חסר שם ספר או קובץ")
         return redirect(url_for("admin_library"))
-    tmp = config.DATA_DIR / f"tmp_{uuid.uuid4().hex}{Path(secure_filename(f.filename) or 'x.txt').suffix}"
+    suffix = Path(secure_filename(f.filename) or "x.txt").suffix.lower()
+    if suffix not in library.PARSERS:
+        flash(f"סוג קובץ לא נתמך: {suffix}")
+        return redirect(url_for("admin_library"))
+    tmp = config.DATA_DIR / f"tmp_{uuid.uuid4().hex}{suffix}"
     f.save(tmp)
-    try:
-        _, n = library.add_book_file(tmp, title, request.form.get("author", ""), request.form.get("aliases", ""))
-        flash(f"נוסף: {title} ({n} פסקאות)")
-    except Exception as e:  # noqa: BLE001
-        flash(f"שגיאה: {e}")
-    finally:
+    ocr = bool(request.form.get("ocr")) and suffix == ".pdf"
+    if ocr and not config.GEMINI_API_KEY:
         tmp.unlink(missing_ok=True)
+        flash("OCR דורש GEMINI_API_KEY")
+        return redirect(url_for("admin_library"))
+    library_jobs.start(tmp, title, request.form.get("author", ""), request.form.get("aliases", ""), ocr)
+    flash("הקובץ התקבל ומעובד ברקע — ההתקדמות מוצגת למטה")
     return redirect(url_for("admin_library"))
+
+
+@app.get("/admin/library/jobs")
+@admin_required
+def library_job_status():
+    return jsonify(library_jobs.JOBS)
+
+
+@app.route("/admin/glossary", methods=["GET", "POST"])
+@admin_required
+def admin_glossary():
+    if request.method == "POST":
+        glossary.save(request.form.get("text", ""))
+        if request.form.get("reindex"):
+            flash(f"המילון נשמר; האינדקס נבנה מחדש ({library.reindex()} פסקאות)")
+        else:
+            flash("המילון נשמר. כדי שיחול על ספרים שכבר בספרייה — סמן 'בנה אינדקס מחדש'")
+        return redirect(url_for("admin_glossary"))
+    return render_template("glossary.html", text=glossary.raw_text())
 
 
 @app.post("/admin/library/<int:bid>/delete")

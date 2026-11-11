@@ -33,7 +33,7 @@
 
 {% if les.status != 'ready' %}
 <div class="card" id="st">
-  <strong id="stText">{{ STATUS_HE[les.status] }}</strong>
+  <strong id="stText">{{ les.progress or STATUS_HE[les.status] }}</strong>
   {% if les.error %}<div class="bad">{{ les.error }}</div>{% endif %}
   {% if is_admin and les.status == 'error' %}
   <form method="post" action="{{ url_for('reprocess', lid=les.id) }}" class="row">
@@ -42,7 +42,8 @@
 </div>
 {% if les.status not in ('error',) %}<script>
 const t=setInterval(async()=>{const r=await fetch("{{ url_for('lesson_status', lid=les.id) }}");const j=await r.json();
- if(j.status==='ready'||j.status==='error'){clearInterval(t);location.reload()}},4000);</script>{% endif %}
+ if(j.status==='ready'||j.status==='error'){clearInterval(t);location.reload()}
+ else if(j.progress){document.getElementById('stText').textContent=j.progress}},4000);</script>{% endif %}
 {% endif %}
 
 {% if les.summary %}<h2>סיכום</h2><p>{{ les.summary }}</p>

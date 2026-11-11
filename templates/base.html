@@ -11,7 +11,7 @@
 <header><div class="bar">
   <a class="brand" href="{{ url_for('index') }}">📖 שיעורי הרב ששון</a>
   <form action="{{ url_for('search') }}"><input name="q" placeholder="חיפוש בספרים…" value="{{ q or '' }}"><button>חפש</button></form>
-  {% if is_admin %}<a href="{{ url_for('admin') }}">ניהול</a><a href="{{ url_for('admin_library') }}">ספרייה</a><a href="{{ url_for('logout') }}">יציאה</a>
+  {% if is_admin %}<a href="{{ url_for('admin') }}">ניהול</a><a href="{{ url_for('admin_library') }}">ספרייה</a><a href="{{ url_for('admin_glossary') }}">מילון</a><a href="{{ url_for('logout') }}">יציאה</a>
   {% else %}<a class="mut" href="{{ url_for('login') }}">כניסת מנהל</a>{% endif %}
 </div></header>
 <main>

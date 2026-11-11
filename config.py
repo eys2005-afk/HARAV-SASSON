@@ -35,4 +35,9 @@ GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")
 OUTBOUND_PROXY = os.environ.get("OUTBOUND_PROXY", "")
 INSECURE_SSL = os.environ.get("INSECURE_SSL", "") == "1"  # BlueCoat מחליף תעודות
 
-MAX_UPLOAD_MB = int(os.environ.get("MAX_UPLOAD_MB", "500"))
+# פיצול הקלטות ארוכות: אורך מקטע (דקות), חפיפה בין מקטעים (שניות), ומקטעים שמתומללים במקביל
+CHUNK_MINUTES = int(os.environ.get("CHUNK_MINUTES", "20"))
+CHUNK_OVERLAP = int(os.environ.get("CHUNK_OVERLAP", "15"))
+TRANSCRIBE_WORKERS = int(os.environ.get("TRANSCRIBE_WORKERS", "3"))
+
+MAX_UPLOAD_MB =int(os.environ.get("MAX_UPLOAD_MB", "500"))

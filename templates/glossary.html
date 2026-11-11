@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block body %}
+<h1>מילון קיצורים ומונחי קבלה</h1>
+<p class="mut">שורה לכל ערך: <code>קיצור = פירוש | פירוש נוסף</code>. משמש את החיפוש (הרב אומר "אריך אנפין", הספר כותב א"א) ואת ה-AI.
+קיצורים קצרים כמו מ"ה / ב"ן מזוהים רק כשיש בהם גרשיים, כדי לא לבלבל עם מילים רגילות.</p>
+<form method="post">
+  <textarea name="text" rows="26" style="width:100%;font-family:monospace;direction:rtl">{{ text }}</textarea>
+  <div class="row"><label><input type="checkbox" name="reindex" checked> בנה אינדקס מחדש (נדרש כדי שהשינוי יחול על ספרים קיימים)</label><button>שמור</button></div>
+</form>
+{% endblock %}
